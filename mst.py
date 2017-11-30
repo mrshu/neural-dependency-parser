@@ -1,7 +1,7 @@
 # This is an implementation of Chu-Liu-Edmonds algorithm
 # For convenience, graphs will pe represented as dictionaries in the following form
 #  {node_1 : {node_i : cost_edge_1_to_i, ...}, ...}
-# Similarly, trees will be keept as ..
+# Similarly, trees are regarded as graph structure
 
 # Note: I use weight and cost with the same meaning
 
@@ -162,6 +162,18 @@ def cle(graph):
           new_best_pred[vtx] = (from_cycle_edges[vtx], best_pred_new_graph[vtx][1])
   
   return new_best_pred
+
+def mst(graph):
+  '''This functions runs the cle algorithm and transforms the best_pred into a 
+  graph structure (with edges in the right direction'''
+  
+  best_pred = cle(graph)
+  tree = {}
+  for vtx, pair in best_pred.items():
+    # this means there is a vertex from pair[0] to vtx of weight pair[1]
+    tree[pair[0]] = {vtx: pair[1]}
+  
+  return tree
 
 def example_graph_1():
   '''This function return the graph provided in the slides week 3, where
