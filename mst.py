@@ -113,7 +113,7 @@ def contract(graph, cycle):
       to_cycle_edges[vtx] = pair[1]
       
   from_cycle_edges = {}
-  for vtx, pair in incomming.items():
+  for vtx, pair in outgoing.items():
     if vtx not in cycle and vtx != 0:
       from_cycle_edges[vtx] = pair[1]
   
