@@ -6,6 +6,7 @@
 # Note: I use weight and cost with the same meaning
 
 import numpy as np
+small_weight = -1000000 # small negative number -inf
 
 def max_incoming_edge_selection(graph):
   '''Selects for each non-root node a maximum incoming edge and returns the 
@@ -13,7 +14,7 @@ def max_incoming_edge_selection(graph):
   
   vertices = list(graph.keys())
   n = len(vertices)
-  best_pred = dict(zip(vertices, [(0, 0)]*n)) # keeps maximum (predecessor, cost)
+  best_pred = dict(zip(vertices, [(0, small_weight)]*n)) # keeps maximum (predecessor, cost)
   
   for vtx, nbhs in graph.items():
     for nbh, cost in nbhs.items():
@@ -31,6 +32,7 @@ def cycle_detection(best_pred):
   vertices = list(best_pred.keys())
   n = len(vertices)
   visited = dict(zip(vertices, [-1]*n)) # keeps maximum (predecessor, cost)
+  visited[0] = 0
   
   # We do DFS: keep track of the currend cycle attempt in 'cycle' and of the visited vertices
   for i in vertices:
@@ -38,6 +40,7 @@ def cycle_detection(best_pred):
     if visited[i] == -1:
       # find the list of predecessors from node i (i <- i_1 <- i_2 <- ...)
       pred = best_pred[i][0]
+      visited[i] = i
       
       while visited[pred] == -1:
         cycle.append(pred)
@@ -48,9 +51,12 @@ def cycle_detection(best_pred):
       # visited brach while looking at another vertex (i.e. visited[pred] != i)
       # or because we found a cycle (i.e. visited[pred] == i)
       
-      if visited[pred] == i and pred != i:
+      if visited[pred] == i:
+        # identify where the cycle starts (it might be the case that it's a cycle with a tale
+        start = cycle.index(pred)
+        cycle = cycle[start:] + [cycle[start]]
         return cycle
-  
+     
   return []
 
 def contract(graph, cycle):
@@ -69,7 +75,7 @@ def contract(graph, cycle):
     cycle_weight += graph[pred][vtx]
   
   # Now we find the incomming edge to the cycle for each node in the graph
-  incomming = dict(zip(vertices, [(0, -1)]*n)) # keeps for each non-in-cycle vertex (weight_to_cycle, vtx_to_cycle)
+  incomming = dict(zip(vertices, [(small_weight, -1)]*n)) # keeps for each non-in-cycle vertex (weight_to_cycle, vtx_to_cycle)
   for i in vertices:
     if i not in cycle:
       for j in range(1, len_cycle):
@@ -80,7 +86,7 @@ def contract(graph, cycle):
           incomming[i] = (weight, vtx)
   
   # Now we find the outgoing edge from the cycle (i.e. max of ougoing arcs)
-  outgoing = dict(zip(vertices, [(0, -1)]*n)) # keeps for each non-in-cycle vertex (weight_from_cycle, vtx_from_cycle)
+  outgoing = dict(zip(vertices, [(small_weight, -1)]*n)) # keeps for each non-in-cycle vertex (weight_from_cycle, vtx_from_cycle)
   for i in vertices:
     if i not in cycle and (i!=0):
       for vtx in cycle:
@@ -137,16 +143,19 @@ def cle(graph):
     
     # Find the node x that links in the best path to the cycle
     cycle_index = max(list(graph.keys())) + 1 
+    #print(graph, new_graph, cycle_index)
+    #print(best_pred, cycle)
     x = best_pred_new_graph[cycle_index][0]
     c = to_cycle_edges[x] # member of the cycle that x links to
     pos_c = cycle.index(c)# position of c in cycle
     if pos_c == 0:
-      pos_c = len(cycle)
+      pos_c = len(cycle)-1
     pred_c =  cycle[pos_c - 1] # predecessor of c in cycle
     
     # Create a new best_pred list fron best_pred_new_graph
     new_best_pred = {}
     vertices = list(best_pred_new_graph.keys())
+    # add edges to vtx
     for vtx in vertices:
       if vtx == cycle_index:
         # Add edge x->c
@@ -168,10 +177,13 @@ def mst(graph):
   graph structure (with edges in the right direction'''
   
   best_pred = cle(graph)
-  tree = {}
+      
+  tree = {vtx:{} for vtx in graph.keys()}
   for vtx, pair in best_pred.items():
     # this means there is a vertex from pair[0] to vtx of weight pair[1]
-    tree[pair[0]] = {vtx: pair[1]}
+    # stupid exception: vtx = pair[0] = 0
+    if not(vtx == 0 and pair[0] == 0):
+      tree[pair[0]][vtx] = pair[1]
   
   return tree
 
