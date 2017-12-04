@@ -1,4 +1,4 @@
-# This is an implementation of Chu-Liu-Edmonds algorithm
+# This is an implementation of Chu-Liu-Edmonds algorithm for Maximum Spanning Tree
 # For convenience, graphs will pe represented as dictionaries in the following form
 #  {node_1 : {node_i : cost_edge_1_to_i, ...}, ...}
 # Similarly, trees are regarded as graph structure
@@ -55,6 +55,7 @@ def cycle_detection(best_pred):
         # identify where the cycle starts (it might be the case that it's a cycle with a tale
         start = cycle.index(pred)
         cycle = cycle[start:] + [cycle[start]]
+        cycle.reverse()
         return cycle
      
   return []
