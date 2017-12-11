@@ -188,6 +188,51 @@ def mst(graph):
   
   return tree
 
+def graph_weight(graph):
+  '''Finds the total weight of a graph'''
+  
+  total_w = 0
+  
+  for vtx, nbhs in graph.items():
+    for nbh, weight in nbhs.items():
+      total_w += weight
+  
+  return total_w
+  
+def mst_one_out_root(graph):
+  '''This function returns the maximum spanning tree such that the out-degree
+  of the root is 1 (i.e. there is only one outgoing edge from the root)'''
+  
+  tree = mst(graph)
+  n = len(graph) # size of the graph
+  
+  # if mst returns a tree with multiple root edges
+  if len(tree[0]) > 1:
+    max_weight = small_weight
+    
+    for root_nbh in range(1, n):
+      # construct new graph with 0->root_nbh having the original weight, 
+      # and the other outgoing edges from 0 having -inf
+      new_graph = {}
+      for vtx, nbhs in graph.items():
+        new_graph[vtx]= {}
+        for nbh, weight in nbhs.items():
+          if vtx == 0:
+            if nbh != root_nbh:
+              new_graph[0][nbh] = small_weight
+            else:
+              new_graph[0][nbh] = weight
+          else:
+            new_graph[vtx][nbh] = weight
+      
+      new_tree = mst(new_graph)
+      new_weight = graph_weight(new_tree)
+      if new_weight > max_weight:
+        max_weight = new_weight
+        tree = new_tree
+  
+  return tree
+
 def example_graph_1():
   '''This function return the graph provided in the slides week 3, where
   root = node_0, John = node_1, saw = node_2, Mary = node_3'''

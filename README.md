@@ -13,4 +13,5 @@ The Maximum Spanning Tree Algorithm was done by Chu-Liu-Edmonds
       - The output is the Maximum Spanning Tree:
           - It is given as a dictionary where the entries are nodes
           - For each node i, there corresponding value is a new dictionary that gives the successors of i in the maximum spanning tree, and for each of them the corresponding weight
+  - Call mst_one_out_root(graph) to have the  maximum spanning tree such that there is only one outgoing edge from node 0 (root)
 
