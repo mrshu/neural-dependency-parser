@@ -27,19 +27,22 @@ def read_voc_pos_tags_from_conllu_file(filename):
 
                 s[id] = ([line_split[1].lower(),
                           line_split[4],
-                          line_split[6]])
+                          line_split[6],
+                          line_split[7]])
 
                 pos_tags.append(line_split[4])
                 vocabulary.append(line_split[1].lower())
 
+        golden_labels = []
         M = np.zeros((len(s) + 1, len(s) + 1))
         for i, w in enumerate(s.keys()):
             if s[w][2] == '_':
                 continue
             M[w2i[s[w][2]]][i+1] = 1
+            golden_labels.append([w2i[s[w][2]], i+1, s[w][3]])
         M[0, 0] = 1
         if s:
-            sentences.append([s, M])
+            sentences.append([s, M, golden_labels])
     return vocabulary, pos_tags, sentences
 
 def read_conllu_file(filename):
@@ -51,6 +54,11 @@ def read_conllu_file(filename):
     voc_counter = Counter(vocabulary)
 
     filtered_vocabulary = set()
+
+    labels = set()
+    for s in sentences:
+        for i, v in s[0].items():
+            labels.add(v[3])
 
     # replace words that occur once with <unk>
     for word in vocabulary:
@@ -66,6 +74,8 @@ def read_conllu_file(filename):
     UNK = w2i["<unk>"]
     w2i = defaultdict(lambda: UNK, w2i)
 
+    l2i = defaultdict(lambda: len(l2i))
+
     for index, word in enumerate(voc_counter):
         w2i[word] = index
 
@@ -74,28 +84,24 @@ def read_conllu_file(filename):
     for index, tag in enumerate(pos_tags):
         t2i[tag] = index
 
-    i2t = {v: k for k, v in t2i.items()}
+    for index, label in enumerate(labels):
+        l2i[label] = index
 
-    l2i = {1: 'root', 2: 'dep', 3: 'aux', 4: 'auxpass', 5: 'cop', 6: 'arg', 7:
-           'agent', 8: 'comp', 9: 'acomp', 10: 'ccomp', 11: 'xcomp', 12: 'obj',
-           13: 'dobj', 14: 'iobj', 15: 'pobj', 16: 'subj', 17: 'nsubj', 18:
-           'nsubjpass', 19: 'csubj', 20: 'csubjpass', 21: 'cc', 22: 'conj', 23:
-           'expl', 24: 'mod', 25: 'amod', 26: 'appos', 27: 'advcl', 28: 'det',
-           29: 'predet', 30: 'preconj', 31: 'vmod', 32: 'mwe', 33: 'mark', 34:
-           'advmod', 35: 'neg', 36: 'rcmod', 37: 'quantmod', 38: 'nn', 39:
-           'npadvmod', 40: 'tmod', 41: 'num', 42: 'number', 43: 'prep', 44:
-           'poss', 45: 'possessive', 46: 'prt', 47: 'parataxis', 48:
-           'goeswith', 49: 'punct', 50: 'ref', 51: 'sdep', 52: 'xsubj', 53:
-           'partmod', 54: 'abbrev', 55: 'attr', 56: 'complm', 57: 'discourse',
-           58: 'infmod', 59: 'purpcl', 60: 'rel', 61: 'pcomp'}
+    i2t = {v: k for k, v in t2i.items()}
 
     i2l = {v: k for k, v in l2i.items()}
 
     index_sentences = []
-    for (sentence, _) in sentences:
+    golden_labels = []
+    for (sentence, _, gl) in sentences:
         s = []
         for k, v in sentence.items():
             s.append((w2i[v[0]], t2i[v[1]]))
+        l = []
+        for f, t, label in gl:
+            l.append([f, t, l2i[label]])
+        golden_labels.append(l)
         index_sentences.append(s)
 
-    return w2i, i2w, t2i, i2t, l2i, i2l, sentences, index_sentences
+    return (w2i, i2w, t2i, i2t, l2i, i2l, sentences, index_sentences,
+            golden_labels)

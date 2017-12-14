@@ -6,24 +6,28 @@ from torch.autograd import Variable
 import numpy as np
 
 class DepParser(nn.Module):
-    def __init__(self, word_voc_size, pos_embedding_len, d_embed, hidden_size):
+    def __init__(self, word_voc_size, pos_embedding_len, labels_size, d_embed, hidden_size):
         super(DepParser, self).__init__()
         self.hidden_size = hidden_size
         self.d_embed = d_embed
+        self.labels_size = labels_size
 
         self.w_embedding = nn.Embedding(word_voc_size, d_embed)
         self.pos_embedding = nn.Embedding(pos_embedding_len, d_embed)
 
-        self.lstm = nn.LSTM(2 * d_embed, hidden_size, 1)
+        self.lstm = nn.LSTM(2 * d_embed, hidden_size, 1, bidirectional=True)
 
-        self.fc1 = torch.nn.Linear(2 * hidden_size, hidden_size)
+        self.fc1 = torch.nn.Linear(2 * hidden_size * 2, hidden_size)
         self.tanh = nn.Tanh()
         self.fc2 = torch.nn.Linear(hidden_size, 1)
 
-        self.root = Variable(torch.zeros((1, 1, hidden_size)),
+        self.mlp_fc1 = torch.nn.Linear(2 * hidden_size * 2, hidden_size)
+        self.mlp_fc2 = torch.nn.Linear(hidden_size, labels_size)
+
+        self.root = Variable(torch.zeros((1, 1, hidden_size * 2)),
                              requires_grad=False)
 
-    def forward(self, words, pos):
+    def forward(self, words, pos, gl):
         e_w = self.w_embedding(words)
         e_p = self.pos_embedding(pos)
 
@@ -43,7 +47,15 @@ class DepParser(nn.Module):
             out = self.tanh(out)
             M[w1, w2] = self.fc2(out)
 
-        return M
+        L = Variable(torch.zeros(len(gl), self.labels_size))
+        for i, (w1, w2, _) in enumerate(gl):
+            arc = torch.cat((output[w1], output[w2]), 1)
+
+            out = self.mlp_fc1(arc)
+            out = self.tanh(out)
+            L[i, :] = self.mlp_fc2(out)
+
+        return M, L
 
 
 if __name__ == "__main__":
@@ -51,15 +63,19 @@ if __name__ == "__main__":
     # voc, pos, s = read_voc_pos_tags_from_conllu_file('./en-ud-dev.conllu.txt')
 
     from data_import import read_conllu_file
-    w2i, i2w, t2i, i2t, l2i, i2l, sentences, index_sentences = read_conllu_file('./en-ud-dev.conllu.txt')
+    (w2i, i2w, t2i, i2t, l2i, i2l, sentences,
+     index_sentences, golden_labels) = read_conllu_file('./en-ud-dev.conllu.txt')
 
-    model = DepParser(len(w2i), len(t2i), 30, 50)
+    model = DepParser(len(w2i), len(t2i), len(l2i), 30, 50)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     for i in range(len(sentences)):
-        s, M = sentences[i]
+        s, M, _ = sentences[i]
         sentence = index_sentences[i]
+
+        gl = golden_labels[i]
+        gl_targets = np.array(list(map(lambda x: x[2], gl)))
 
         words = list(map(lambda x: x[0], sentence))
         pos = list(map(lambda x: x[1], sentence))
@@ -75,7 +91,7 @@ if __name__ == "__main__":
 
         optimizer.zero_grad()
 
-        out_M = model(words, pos)
+        out_M, out_L = model(words, pos, gl)
         t_out_M = torch.t(out_M)
 
         if i > 0 and i % 50 == 0:
@@ -83,12 +99,21 @@ if __name__ == "__main__":
             print(torch.t(s(t_out_M)))
             print(M)
 
+            maxs, indices = torch.max(s(out_L), 1)
+            print(indices.unsqueeze(0))
+            print(gl_targets)
+
         np_targets = np.argmax(M, axis=0)
         targets = Variable(torch.from_numpy(np_targets), requires_grad=False)
 
-        loss = criterion(t_out_M, targets)
+        label_targets = Variable(torch.from_numpy(gl_targets),
+                                 requires_grad=False)
+
+        loss_matrix = criterion(t_out_M, targets)
+        loss_labels = criterion(out_L, label_targets)
+
+        loss = loss_matrix + loss_labels
+
         print('{} loss: {}'.format(i, loss.data[0]))
         loss.backward()
         optimizer.step()
-
-
