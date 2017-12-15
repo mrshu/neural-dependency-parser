@@ -71,9 +71,6 @@ def read_conllu_file(filename):
 
     w2i = defaultdict(lambda: len(w2i))
     t2i = defaultdict(lambda: len(t2i))
-    UNK = w2i["<unk>"]
-    w2i = defaultdict(lambda: UNK, w2i)
-
     l2i = defaultdict(lambda: len(l2i))
 
     for index, word in enumerate(voc_counter):
@@ -103,5 +100,5 @@ def read_conllu_file(filename):
         golden_labels.append(l)
         index_sentences.append(s)
 
-    return (w2i, i2w, t2i, i2t, l2i, i2l, sentences, index_sentences,
-            golden_labels)
+    return (dict(w2i), dict(i2w), dict(t2i), dict(i2t), dict(l2i), dict(i2l),
+            sentences, index_sentences, golden_labels)

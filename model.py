@@ -6,11 +6,19 @@ from torch.autograd import Variable
 import numpy as np
 
 class DepParser(nn.Module):
-    def __init__(self, word_voc_size, pos_embedding_len, labels_size, d_embed, hidden_size):
+    def __init__(self, word_voc_size, pos_embedding_len, labels_size, d_embed,
+                 hidden_size, w2i, i2w, t2i, i2t, l2i, i2l):
         super(DepParser, self).__init__()
         self.hidden_size = hidden_size
         self.d_embed = d_embed
         self.labels_size = labels_size
+
+        self.w2i = w2i
+        self.i2w = i2w
+        self.t2i = t2i
+        self.i2t = i2t
+        self.l2i = l2i
+        self.i2l = i2l
 
         self.w_embedding = nn.Embedding(word_voc_size, d_embed)
         self.pos_embedding = nn.Embedding(pos_embedding_len, d_embed)
@@ -40,80 +48,28 @@ class DepParser(nn.Module):
         # Concatentate the root vector
         output = torch.cat((self.root, output), 0)
 
-        for w1, w2 in product(list(range(len(words) + 1)), repeat=2):
-            arc = torch.cat((output[w1], output[w2]), 1)
+        words_comb = list(product(list(range(len(words) + 1)), repeat=2))
+        arcs = Variable(torch.zeros(len(words_comb), 2 * 2 * self.hidden_size))
 
-            out = self.fc1(arc)
-            out = self.tanh(out)
-            M[w1, w2] = self.fc2(out)
+        for i, (w1, w2) in enumerate(words_comb):
+            arc = torch.cat((output[w1], output[w2]), 1)
+            arcs[i, :] = arc
+
+        out = self.fc1(arcs)
+        out = self.tanh(out)
+        g = self.fc2(out)
+
+        for i, (w1, w2) in enumerate(words_comb):
+            M[w1, w2] = g[i]
 
         L = Variable(torch.zeros(len(gl), self.labels_size))
+        Ls = Variable(torch.zeros(len(gl), 2 * 2 * self.hidden_size))
         for i, (w1, w2, _) in enumerate(gl):
             arc = torch.cat((output[w1], output[w2]), 1)
+            Ls[i, :] = arc
 
-            out = self.mlp_fc1(arc)
-            out = self.tanh(out)
-            L[i, :] = self.mlp_fc2(out)
+        out = self.mlp_fc1(Ls)
+        out = self.tanh(out)
+        L = self.mlp_fc2(out)
 
         return M, L
-
-
-if __name__ == "__main__":
-    # from data_import import read_voc_pos_tags_from_conllu_file
-    # voc, pos, s = read_voc_pos_tags_from_conllu_file('./en-ud-dev.conllu.txt')
-
-    from data_import import read_conllu_file
-    (w2i, i2w, t2i, i2t, l2i, i2l, sentences,
-     index_sentences, golden_labels) = read_conllu_file('./en-ud-dev.conllu.txt')
-
-    model = DepParser(len(w2i), len(t2i), len(l2i), 30, 50)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-    for i in range(len(sentences)):
-        s, M, _ = sentences[i]
-        sentence = index_sentences[i]
-
-        gl = golden_labels[i]
-        gl_targets = np.array(list(map(lambda x: x[2], gl)))
-
-        words = list(map(lambda x: x[0], sentence))
-        pos = list(map(lambda x: x[1], sentence))
-
-        rev_words = list(map(lambda x: i2w[x], words))
-        rev_pos = list(map(lambda x: i2t[x], pos))
-
-        # print(words, pos)
-        # print(rev_words, rev_pos)
-
-        words = Variable(torch.LongTensor(words))
-        pos = Variable(torch.LongTensor(pos))
-
-        optimizer.zero_grad()
-
-        out_M, out_L = model(words, pos, gl)
-        t_out_M = torch.t(out_M)
-
-        if i > 0 and i % 50 == 0:
-            s = nn.Softmax()
-            print(torch.t(s(t_out_M)))
-            print(M)
-
-            maxs, indices = torch.max(s(out_L), 1)
-            print(indices.unsqueeze(0))
-            print(gl_targets)
-
-        np_targets = np.argmax(M, axis=0)
-        targets = Variable(torch.from_numpy(np_targets), requires_grad=False)
-
-        label_targets = Variable(torch.from_numpy(gl_targets),
-                                 requires_grad=False)
-
-        loss_matrix = criterion(t_out_M, targets)
-        loss_labels = criterion(out_L, label_targets)
-
-        loss = loss_matrix + loss_labels
-
-        print('{} loss: {}'.format(i, loss.data[0]))
-        loss.backward()
-        optimizer.step()
