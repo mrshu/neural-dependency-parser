@@ -20,4 +20,3 @@ The Maximum Spanning Tree Algorithm was done by Chu-Liu-Edmonds
           - The procedure should return 'All fine!' if now diference wes found for no_tests many random graphs of sizes size_graph
           - If differences are found the alogrithm returns 'problem found:' followed by the details of the example to caused the fail
           - We've run this function with 1000 graphs of size 70, and no differences were found
-
