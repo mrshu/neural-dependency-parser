@@ -28,7 +28,9 @@ def read_voc_pos_tags_from_conllu_file(filename):
                 s[id] = ([line_split[1].lower(),
                           line_split[4],
                           line_split[6],
-                          line_split[7]])
+                          line_split[7],
+                          line_split[1],
+                          line_split[0]])
 
                 pos_tags.append(line_split[4])
                 vocabulary.append(line_split[1].lower())

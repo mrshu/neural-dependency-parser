@@ -23,7 +23,7 @@ class DepParser(nn.Module):
         self.w_embedding = nn.Embedding(word_voc_size, d_embed)
         self.pos_embedding = nn.Embedding(pos_embedding_len, d_embed)
 
-        self.lstm = nn.LSTM(2 * d_embed, hidden_size, 1, bidirectional=True)
+        self.lstm = nn.LSTM(2 * d_embed, hidden_size, 2, bidirectional=True)
 
         self.fc1 = torch.nn.Linear(2 * hidden_size * 2, hidden_size)
         self.tanh = nn.Tanh()
@@ -68,8 +68,9 @@ class DepParser(nn.Module):
             arc = torch.cat((output[w1], output[w2]), 1)
             Ls[i, :] = arc
 
-        out = self.mlp_fc1(Ls)
-        out = self.tanh(out)
-        L = self.mlp_fc2(out)
+        if len(gl) > 0:
+            out = self.mlp_fc1(Ls)
+            out = self.tanh(out)
+            L = self.mlp_fc2(out)
 
         return M, L

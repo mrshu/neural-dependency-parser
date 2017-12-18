@@ -22,16 +22,16 @@ if __name__ == "__main__":
 
     writer = SummaryWriter()
 
-    model = DepParser(len(w2i), len(t2i), len(l2i), 30, 50, w2i, i2w, t2i, i2t,
+    model = DepParser(len(w2i), len(t2i), len(l2i), 100, 125, w2i, i2w, t2i, i2t,
                       l2i, i2l)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-    for i in range(len(sentences)):
-        s, M, _ = sentences[i]
-        sentence = index_sentences[i]
+    for i in range(len(sentences) * 3):
+        s, M, _ = sentences[i % len(sentences)]
+        sentence = index_sentences[i % len(sentences)]
 
-        gl = golden_labels[i]
+        gl = golden_labels[i % len(sentences)]
         gl_targets = np.array(list(map(lambda x: x[2], gl)))
 
         words = list(map(lambda x: x[0], sentence))
@@ -76,6 +76,10 @@ if __name__ == "__main__":
         loss = loss_matrix + loss_labels
 
         print('{} loss: {}'.format(i, loss.data[0]))
+
+        if i > 0 and i % 5000 == 0:
+            torch.save(model, 'model_{}_{}_{}_{}'.format(dt, sys.argv[1],
+                                                         loss.data[0], i))
 
         writer.add_scalar('loss', loss.data[0], i)
 
